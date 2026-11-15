@@ -1,0 +1,13 @@
+# The real server in a container (here the widely used itzg/minecraft-server image). dormant runs
+# on the host, owns the public port 25565 and starts / stops this container.
+services:
+  mc:
+    image: itzg/minecraft-server
+    container_name: mc
+    environment:
+      EULA: "TRUE" # setting this means you accept the Minecraft EULA
+    ports:
+      - "127.0.0.1:25566:25565" # only dormant can reach the server
+    volumes:
+      - ./data:/data
+    restart: "no" # dormant decides when it runs

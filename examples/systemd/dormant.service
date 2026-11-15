@@ -1,0 +1,21 @@
+# /etc/systemd/system/dormant.service
+[Unit]
+Description=dormant Minecraft sleep proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/dormant /etc/dormant/dormant.toml
+Restart=always
+RestartSec=5
+# Creates /var/lib/dormant for cache_file / state_file.
+StateDirectory=dormant
+# Restarting dormant never touches the Minecraft server: it finds it again by status ping (or, in
+# freeze mode, by process state). It does drop connected players.
+#
+# This runs as root so that start_cmd / stop_cmd can call systemctl, and so that freeze mode can
+# find and signal the server process. To run it as another user, add User=..., and give that user
+# the right to run your start/stop commands (for example a sudoers or polkit rule).
+
+[Install]
+WantedBy=multi-user.target

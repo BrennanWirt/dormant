@@ -1,0 +1,55 @@
+# dormant: single-server config with every key. Only the five keys marked REQUIRED are needed.
+# Run:    dormant /etc/dormant/dormant.toml
+# Check:  dormant --check /etc/dormant/dormant.toml
+# Unknown keys are rejected, so a typo is an error and not a silently ignored setting.
+
+listen  = "0.0.0.0:25565"       # REQUIRED. The public address players connect to.
+backend = "127.0.0.1:25566"     # REQUIRED. The real server (set server-port=25566 and, ideally,
+                                # server-ip=127.0.0.1 in its server.properties).
+
+# REQUIRED. Shell commands (run with `sh -c`) that start / stop the real server. They must return
+# quickly (they are killed after 180 s); dormant watches the server itself with status pings.
+start_cmd = "systemctl start --no-block minecraft"
+stop_cmd  = "systemctl stop --no-block minecraft"
+
+# REQUIRED. Shown in the server list while the server is off. `{wake_secs}` is the measured wake time.
+motd_sleeping = "§6My server\n§7Asleep - join to wake it (~{wake_secs} s)"
+
+# --- texts (all optional) -------------------------------------------------------------------------
+# motd_starting = "§2Waking up...\n§7Join again in ~{wake_secs} s"    # default: motd_sleeping
+# motd_stopping = "§7Going to sleep..."                               # default: motd_sleeping
+# Kick texts may also use `{secs}` (seconds left of the current wake).
+# kick_starting     = "§6The server is starting!§r\n\nTry again in about {secs} seconds."
+# kick_stopping     = "§7The server is going to sleep.§r\n\nTry again in about a minute and it will wake up."
+# kick_denied       = "§cThe server is asleep and you are not allowed to wake it."
+# kick_rate_limited = "§cToo many wake-ups in a short time.§r\n\nTry again in a few minutes."
+
+# --- timing ---------------------------------------------------------------------------------------
+idle_secs = 900            # stop (or freeze) after this long with nobody online
+min_up_secs = 600          # but never sooner than this after it came up
+wake_secs_default = 90     # `{wake_secs}` until a wake has been measured (then: median of the last 5)
+wake_timeout_secs = 600    # give up on a start that never answers
+poll_secs = 5              # how often the backend is asked for its status
+
+# --- who may wake it --------------------------------------------------------------------------------
+# wake_names = ["Steve", "Alex"]   # only these player names may wake it; default: anyone
+wake_limit_per_ip = 3              # wakes allowed per source address (IPv4 address / IPv6 /64) ...
+wake_limit_global = 6              # ... and in total, within wake_limit_window_secs. 0 = no limit.
+wake_limit_window_secs = 600
+
+# --- sleeping status reply ----------------------------------------------------------------------------
+# The last real status reply is saved here, so that the sleeping server-list entry (version, mod
+# list, icon) looks like the real one even after dormant restarts. Strongly recommended.
+cache_file = "/var/lib/dormant/status.json"
+# state_file = "/var/lib/dormant/status.state.json"   # measured wake times; default: next to cache_file
+# max_players = 20           # default: what the last real reply said, else 20
+# Used only until a real reply has been cached (and as the protocol number of dormant's own pings):
+# version_name = "1.21.1"    # default "1.12.2"
+# protocol = 767             # default 340
+
+# --- freeze mode (optional, Linux only; read the README section first) --------------------------------
+# sleep_mode = "freeze"                                # default "stop"
+# properties_file = "/srv/minecraft/server.properties" # freeze is refused unless it has max-tick-time=-1
+# Which process to pause. Default: whoever owns the backend's listening port (needs root).
+# pidfile = "/run/minecraft.pid"
+# pid_pattern = "-jar server.jar"                      # substring of the command line; must match one process

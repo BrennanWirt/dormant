@@ -1,0 +1,15 @@
+# /etc/systemd/system/minecraft.service
+# An ordinary unit for the real server. Do NOT enable it: dormant starts and stops it.
+# In server.properties set server-port=25566 (and server-ip=127.0.0.1) so that only dormant is public.
+[Unit]
+Description=Minecraft server (started on demand by dormant)
+After=network-online.target
+
+[Service]
+User=minecraft
+WorkingDirectory=/srv/minecraft
+ExecStart=/usr/bin/java -Xms2G -Xmx4G -jar server.jar nogui
+# Java exits with 143 when it shuts down cleanly after SIGTERM.
+SuccessExitStatus=0 143
+TimeoutStopSec=120
+Restart=no

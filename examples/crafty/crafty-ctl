@@ -1,0 +1,22 @@
+#!/bin/bash
+# crafty-ctl <crafty-server-id> start|stop|running
+#
+# Starts / stops a server managed by Crafty Controller 4 through its HTTP API and returns at once
+# (dormant watches the server itself). Install as /usr/local/bin/crafty-ctl.
+#
+#   CRAFTY_URL         base URL of the panel   (default https://localhost:8443)
+#   CRAFTY_TOKEN_FILE  file with an API token  (default /etc/dormant/crafty-token, mode 600)
+#
+# Create the token in Crafty for a user that may start and stop the server.
+# `curl -k` is used because Crafty ships with a self-signed certificate; drop the -k if yours is real.
+SID=$1; ACT=$2
+API=${CRAFTY_URL:-https://localhost:8443}/api/v2/servers/$SID
+TOKEN=$(cat "${CRAFTY_TOKEN_FILE:-/etc/dormant/crafty-token}") || exit 1
+api() { curl -sk -f -m 20 -H "Authorization: Bearer $TOKEN" "$@"; }
+running() { api "$API/stats" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["data"]["running"] else 1)'; }
+case "$ACT" in
+  start)   running && exit 0; api -X POST "$API/action/start_server" >/dev/null ;;
+  stop)    running || exit 0; api -X POST "$API/action/stop_server" >/dev/null ;;
+  running) running ;;
+  *) echo "usage: crafty-ctl <server-id> start|stop|running" >&2; exit 2 ;;
+esac

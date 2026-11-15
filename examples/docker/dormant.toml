@@ -1,0 +1,7 @@
+# dormant in front of the container from docker-compose.yml. dormant itself runs on the host.
+listen  = "0.0.0.0:25565"
+backend = "127.0.0.1:25566"
+start_cmd = "docker start mc"
+stop_cmd  = "docker stop -t 60 mc"
+motd_sleeping = "§6My server\n§7Asleep - join to wake it (~{wake_secs} s)"
+cache_file = "/var/lib/dormant/status.json"

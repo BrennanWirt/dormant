@@ -1,0 +1,30 @@
+# dormant: several servers behind one port, chosen by the hostname the player typed.
+# In this format `listen` is a top-level key; every other key from examples/dormant.toml goes
+# into a [[server]] block. `dormant new` appends such blocks for you.
+
+listen = "0.0.0.0:25565"
+default = "survival"       # optional: the server for hostnames nobody claims (also a bare IP address).
+                           # Without it, such connections get an "unknown server" reply and wake nothing.
+# unknown_motd = "§cUnknown server\n§7Check the address you typed"
+
+[[server]]
+name = "survival"
+hosts = ["mc.example.com", "survival.example.com"]
+backend = "127.0.0.1:25566"
+start_cmd = "systemctl start --no-block minecraft@survival"
+stop_cmd  = "systemctl stop --no-block minecraft@survival"
+motd_sleeping = "§6Survival\n§7Asleep - join to wake it (~{wake_secs} s)"
+cache_file = "/var/lib/dormant/survival-status.json"
+
+[[server]]
+name = "modded"
+hosts = ["modded.example.com"]
+backend = "127.0.0.1:25567"
+start_cmd = "systemctl start --no-block minecraft@modded"
+stop_cmd  = "systemctl stop --no-block minecraft@modded"
+idle_secs = 1800
+wake_secs_default = 150
+wake_names = ["Steve", "Alex"]
+motd_sleeping = "§6Modded\n§7Asleep - join to wake it (~{wake_secs} s)"
+kick_starting = "§6Modded is waking up!§r\n\nThis takes about {wake_secs} seconds.\nTry again in about {secs} seconds."
+cache_file = "/var/lib/dormant/modded-status.json"
