@@ -1,0 +1,9 @@
+/target/
+*.bak
+*.new
+*.tmp
+# runtime files dormant writes next to its config when cache_file / state_file point there
+*-status.json
+*.state.json
+# harness scratch directory
+/harness/work/

@@ -1,0 +1,27 @@
+[package]
+name = "dormant"
+version = "0.1.0"
+edition = "2021"
+description = "Tiny Minecraft Java sleep proxy: answers server-list pings while the server is off, wakes it on join, stops or freezes it when idle."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+# PLACEHOLDER: set this to the real repository URL before publishing.
+repository = "https://github.com/OWNER/dormant"
+keywords = ["minecraft", "proxy", "sleep", "idle", "server"]
+categories = ["command-line-utilities", "network-programming", "game-development"]
+# rust-version: not set yet. Set it to the oldest toolchain that `cargo test` was actually run on
+# (the code needs at least 1.75 for IpAddr::to_canonical; the dependencies may need newer).
+exclude = [".github/", "harness/", "GENERALIZE.md"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros", "net", "io-util", "time", "process", "signal", "sync", "fs"] }
+toml = "0.8"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
