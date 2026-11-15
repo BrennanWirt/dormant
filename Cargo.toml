@@ -5,8 +5,8 @@ edition = "2021"
 description = "Tiny Minecraft Java sleep proxy: answers server-list pings while the server is off, wakes it on join, stops or freezes it when idle."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-# PLACEHOLDER: set this to the real repository URL before publishing.
-repository = "https://github.com/OWNER/dormant"
+authors = ["Brennan Wirt"]
+repository = "https://github.com/BrennanWirt/dormant"
 keywords = ["minecraft", "proxy", "sleep", "idle", "server"]
 categories = ["command-line-utilities", "network-programming", "game-development"]
 # rust-version: not set yet. Set it to the oldest toolchain that `cargo test` was actually run on

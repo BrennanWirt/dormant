@@ -28,7 +28,7 @@ your platform).
 
 1. **Build and install.**
 
-       git clone https://github.com/OWNER/dormant    # placeholder URL
+       git clone https://github.com/BrennanWirt/dormant
        cd dormant
        cargo build --release
        sudo install -m 755 target/release/dormant /usr/local/bin/dormant
