@@ -143,7 +143,10 @@ FP=$(cat "$W/frozen.pid")
 "$BIN" "$W/freeze.toml" > "$W/freeze.log" 2>&1 &
 DPID=$!
 eventually "the running backend is adopted" "REAL FROZEN" 10 ping localhost
-eventually "the backend is frozen when idle (process state T)" "T" 20 state "$FP"
+# Wait for dormant's own "frozen" log line, not just the process state: the process reaches state T a moment
+# before dormant commits to the freeze, and a ping landing in that window makes it undo the freeze (by design).
+eventually "dormant reports the backend frozen" "event=frozen" 20 cat "$W/freeze.log"
+expect "the backend is frozen when idle (process state T)" "T" state "$FP"
 expect "a ping while frozen is answered from the cache" "frozen asleep" ping localhost
 expect "the ping did not resume the backend" "T" state "$FP"
 expect "a login resumes the backend and is forwarded, no kick" "backend FROZEN says hi: Alex" login localhost Alex

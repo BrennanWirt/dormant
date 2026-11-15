@@ -39,7 +39,12 @@ pub fn load(path: &str) -> Result<Loaded, String> {
         if m.server.iter().any(|s| s.listen.is_some()) {
             return Err("`listen` is a top-level key in a [[server]] file, not a per-server one".into());
         }
-        Loaded { listen: m.listen, default: m.default, unknown_motd: m.unknown_motd.unwrap_or_else(|| UNKNOWN_MOTD.into()), servers: m.server }
+        Loaded {
+            listen: m.listen,
+            default: m.default,
+            unknown_motd: m.unknown_motd.unwrap_or_else(|| UNKNOWN_MOTD.into()),
+            servers: m.server,
+        }
     } else {
         let c: Config = v.try_into().map_err(|e| format!("{path}: {e}"))?;
         let listen = c.listen.clone().ok_or("`listen` is missing")?;
@@ -54,17 +59,25 @@ fn validate(l: &mut Loaded) -> Result<(), String> {
     let single = l.servers.len() == 1;
     let (mut names, mut hosts, mut files) = (HashSet::new(), HashSet::new(), HashSet::new());
     for (i, s) in l.servers.iter_mut().enumerate() {
-        if s.name.is_empty() { s.name = if single { "main".into() } else { format!("server{}", i + 1) }; }
-        if !names.insert(s.name.clone()) { return Err(format!("duplicate server name {:?}", s.name)); }
+        if s.name.is_empty() {
+            s.name = if single { "main".into() } else { format!("server{}", i + 1) };
+        }
+        if !names.insert(s.name.clone()) {
+            return Err(format!("duplicate server name {:?}", s.name));
+        }
         for h in s.hosts.iter_mut() {
             *h = h.trim().trim_end_matches('.').to_ascii_lowercase();
-            if !hosts.insert(h.clone()) { return Err(format!("host {h:?} is claimed by two servers")); }
+            if !hosts.insert(h.clone()) {
+                return Err(format!("host {h:?} is claimed by two servers"));
+            }
         }
         if s.hosts.is_empty() && !single && l.default.as_deref() != Some(&s.name) {
             return Err(format!("server {:?} has no hosts and is not the default", s.name));
         }
         for f in [&s.cache_file, &s.state_file].into_iter().flatten() {
-            if !files.insert(f.clone()) { return Err(format!("{} is used by two servers", f.display())); }
+            if !files.insert(f.clone()) {
+                return Err(format!("{} is used by two servers", f.display()));
+            }
         }
     }
     match &l.default {
@@ -79,10 +92,13 @@ pub async fn cmd_list(args: &[String]) -> ExitCode {
     let path = args.first().map_or(DEFAULT_CONFIG, String::as_str);
     let l = match load(path) {
         Ok(l) => l,
-        Err(e) => { eprintln!("config error: {e}"); return ExitCode::from(2); }
+        Err(e) => {
+            eprintln!("config error: {e}");
+            return ExitCode::from(2);
+        }
     };
     println!("{path}: listening on {}", l.listen);
-    println!("{:<10} {:<36} {:<6} {:<22} {:<16} {}", "NAME", "HOSTS", "MODE", "STATE", "WAKE TIME", "BACKEND");
+    println!("{:<10} {:<36} {:<6} {:<22} {:<16} BACKEND", "NAME", "HOSTS", "MODE", "STATE", "WAKE TIME");
     for s in &l.servers {
         let state = if s.sleep_mode == SleepMode::Freeze && freeze::adopt(s).is_some() {
             "frozen (asleep)".to_string()
@@ -98,10 +114,22 @@ pub async fn cmd_list(args: &[String]) -> ExitCode {
             None => format!("{} s (default)", s.wake_secs_default),
         };
         let mut hosts = if s.hosts.is_empty() { "(any)".into() } else { s.hosts.join(",") };
-        if l.default.as_deref() == Some(&s.name) { hosts.push_str(" *"); }
-        println!("{:<10} {:<36} {:<6} {:<22} {:<16} {}", s.name, hosts, format!("{:?}", s.sleep_mode).to_lowercase(), state, wake, s.backend);
+        if l.default.as_deref() == Some(&s.name) {
+            hosts.push_str(" *");
+        }
+        println!(
+            "{:<10} {:<36} {:<6} {:<22} {:<16} {}",
+            s.name,
+            hosts,
+            format!("{:?}", s.sleep_mode).to_lowercase(),
+            state,
+            wake,
+            s.backend
+        );
     }
-    if l.default.is_some() { println!("* = default server (unmatched hostnames)"); }
+    if l.default.is_some() {
+        println!("* = default server (unmatched hostnames)");
+    }
     ExitCode::SUCCESS
 }
 
@@ -176,8 +204,14 @@ pub fn cmd_new(args: &[String]) -> ExitCode {
         return ExitCode::from(if args.is_empty() { 2 } else { 0 });
     }
     match new_inner(args) {
-        Ok(msg) => { println!("{msg}"); ExitCode::SUCCESS }
-        Err(e) => { eprintln!("dormant new: {e}"); ExitCode::from(2) }
+        Ok(msg) => {
+            println!("{msg}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("dormant new: {e}");
+            ExitCode::from(2)
+        }
     }
 }
 
@@ -194,7 +228,11 @@ fn new_inner(args: &[String]) -> Result<String, String> {
             "--stop-cmd" => stop_cmd = Some(val),
             "--crafty-id" => crafty = Some(val),
             "--backend-port" => port = Some(val.parse::<u16>().map_err(|_| "bad --backend-port")?),
-            "--hosts" => hosts = Some(val.split(',').map(|h| h.trim().trim_end_matches('.').to_ascii_lowercase()).collect::<Vec<_>>()),
+            "--hosts" => {
+                hosts = Some(
+                    val.split(',').map(|h| h.trim().trim_end_matches('.').to_ascii_lowercase()).collect::<Vec<_>>(),
+                )
+            }
             "--mode" => mode = val,
             "--properties-file" => properties_file = Some(val),
             "--config" => path = val,
@@ -202,23 +240,41 @@ fn new_inner(args: &[String]) -> Result<String, String> {
         }
     }
     let (port, hosts) = (port.ok_or("--backend-port is missing")?, hosts.ok_or("--hosts is missing")?);
-    if !ident_ok(&name, "-_") { return Err("name may only contain a-z, 0-9, - and _".into()); }
-    if mode != "stop" && mode != "freeze" { return Err("--mode must be stop or freeze".into()); }
-    if hosts.iter().any(|h| !ident_ok(h, "-.")) { return Err("--hosts must be plain hostnames like mc.example.com".into()); }
+    if !ident_ok(&name, "-_") {
+        return Err("name may only contain a-z, 0-9, - and _".into());
+    }
+    if mode != "stop" && mode != "freeze" {
+        return Err("--mode must be stop or freeze".into());
+    }
+    if hosts.iter().any(|h| !ident_ok(h, "-.")) {
+        return Err("--hosts must be plain hostnames like mc.example.com".into());
+    }
     if mode == "freeze" && properties_file.is_none() {
         return Err("--mode freeze needs --properties-file <path to the server's server.properties>".into());
     }
     let (start_cmd, stop_cmd) = match (start_cmd, stop_cmd, crafty) {
         (Some(a), Some(b), None) => (a, b),
         (None, None, Some(id)) => {
-            if !ident_ok(&id, "-") { return Err("--crafty-id must be the server's id from Crafty (lowercase hex and dashes)".into()); }
+            if !ident_ok(&id, "-") {
+                return Err("--crafty-id must be the server's id from Crafty (lowercase hex and dashes)".into());
+            }
             (format!("/usr/local/bin/crafty-ctl {id} start"), format!("/usr/local/bin/crafty-ctl {id} stop"))
         }
         _ => return Err("give both --start-cmd and --stop-cmd (or --crafty-id instead of the two)".into()),
     };
-    if start_cmd.contains('\n') || stop_cmd.contains('\n') { return Err("commands must be a single line".into()); }
+    if start_cmd.contains('\n') || stop_cmd.contains('\n') {
+        return Err("commands must be a single line".into());
+    }
 
-    let block = server_block(&NewServer { name: name.clone(), port, hosts: hosts.clone(), start_cmd, stop_cmd, mode, properties_file });
+    let block = server_block(&NewServer {
+        name: name.clone(),
+        port,
+        hosts: hosts.clone(),
+        start_cmd,
+        stop_cmd,
+        mode,
+        properties_file,
+    });
     let existing = Path::new(&path).exists();
     let text = if existing {
         let old = fs::read_to_string(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
@@ -231,10 +287,17 @@ fn new_inner(args: &[String]) -> Result<String, String> {
         format!("# dormant: one listener, several servers chosen by the hostname the player typed.\nlisten = \"0.0.0.0:25565\"\n# default = \"{name}\"    # server for hostnames nobody claims; without it they get an 'unknown server' reply\n\n{block}")
     };
     let tmp = format!("{path}.new");
-    if let Some(dir) = Path::new(&path).parent() { fs::create_dir_all(dir).ok(); }
+    if let Some(dir) = Path::new(&path).parent() {
+        fs::create_dir_all(dir).ok();
+    }
     fs::write(&tmp, &text).map_err(|e| format!("cannot write {tmp}: {e}"))?;
-    if let Err(e) = load(&tmp) { fs::remove_file(&tmp).ok(); return Err(format!("not written, the result would be invalid: {e}")); }
-    if existing { fs::copy(&path, format!("{path}.bak")).map_err(|e| e.to_string())?; }
+    if let Err(e) = load(&tmp) {
+        fs::remove_file(&tmp).ok();
+        return Err(format!("not written, the result would be invalid: {e}"));
+    }
+    if existing {
+        fs::copy(&path, format!("{path}.bak")).map_err(|e| e.to_string())?;
+    }
     fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
     Ok(format!("{} server {name:?} ({}) in {path}{}\n\nStill to do by hand:\n  1. DNS: point {} at the machine dormant listens on (dormant never touches DNS).\n  2. Review the new block in {path} (MOTD texts, wake_names, version_name / protocol).\n  3. Pick up the new server: restart dormant (this drops connected players: do it when nobody is online).\n  4. Check: `dormant --check {path}` and `dormant list {path}`.",
         if existing { "Added" } else { "Created" }, hosts.join(", "), if existing { format!(" (backup: {path}.bak)") } else { String::new() }, hosts.join(", ")))
@@ -278,12 +341,21 @@ mod tests {
         let path = write("new.toml", "");
         fs::remove_file(&path).unwrap();
         let args = |n: &str, h: &str, extra: &[&str]| -> Vec<String> {
-            [n, "--backend-port", "25570", "--hosts", h, "--config", &path].iter().chain(extra).map(|s| s.to_string()).collect()
+            [n, "--backend-port", "25570", "--hosts", h, "--config", &path]
+                .iter()
+                .chain(extra)
+                .map(|s| s.to_string())
+                .collect()
         };
         let cmds = ["--start-cmd", "systemctl start \"mc one\"", "--stop-cmd", "systemctl stop mc"];
         let out = new_inner(&args("modded", "modded.example.com", &cmds)).unwrap();
         assert!(out.contains("Created") && out.contains("DNS"));
-        new_inner(&args("vanilla", "vanilla.example.com,mc.example.com", &["--crafty-id", "0a1b2c3d-0000-4000-8000-123456789abc"])).unwrap();
+        new_inner(&args(
+            "vanilla",
+            "vanilla.example.com,mc.example.com",
+            &["--crafty-id", "0a1b2c3d-0000-4000-8000-123456789abc"],
+        ))
+        .unwrap();
         let l = load(&path).unwrap();
         assert_eq!(l.servers.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["modded", "vanilla"]);
         assert_eq!(l.servers[0].start_cmd, "systemctl start \"mc one\""); // quotes survive the TOML round trip
@@ -301,14 +373,32 @@ mod tests {
         let path = write("new2.toml", "");
         fs::remove_file(&path).unwrap();
         let args = |extra: &[&str]| -> Vec<String> {
-            ["a", "--backend-port", "25570", "--hosts", "a.example.com", "--config", &path].iter().chain(extra).map(|s| s.to_string()).collect()
+            ["a", "--backend-port", "25570", "--hosts", "a.example.com", "--config", &path]
+                .iter()
+                .chain(extra)
+                .map(|s| s.to_string())
+                .collect()
         };
         assert!(new_inner(&args(&[])).unwrap_err().contains("--start-cmd"));
         assert!(new_inner(&args(&["--start-cmd", "x"])).unwrap_err().contains("--stop-cmd"));
-        assert!(new_inner(&args(&["--start-cmd", "x", "--stop-cmd", "y", "--crafty-id", "abc"])).unwrap_err().contains("--crafty-id"));
-        assert!(new_inner(&args(&["--start-cmd", "x", "--stop-cmd", "y", "--mode", "freeze"])).unwrap_err().contains("--properties-file"));
+        assert!(new_inner(&args(&["--start-cmd", "x", "--stop-cmd", "y", "--crafty-id", "abc"]))
+            .unwrap_err()
+            .contains("--crafty-id"));
+        assert!(new_inner(&args(&["--start-cmd", "x", "--stop-cmd", "y", "--mode", "freeze"]))
+            .unwrap_err()
+            .contains("--properties-file"));
         assert!(!Path::new(&path).exists());
-        new_inner(&args(&["--start-cmd", "x", "--stop-cmd", "y", "--mode", "freeze", "--properties-file", "/srv/mc/server.properties"])).unwrap();
+        new_inner(&args(&[
+            "--start-cmd",
+            "x",
+            "--stop-cmd",
+            "y",
+            "--mode",
+            "freeze",
+            "--properties-file",
+            "/srv/mc/server.properties",
+        ]))
+        .unwrap();
         let l = load(&path).unwrap();
         assert_eq!(l.servers[0].sleep_mode, SleepMode::Freeze);
         assert_eq!(l.servers[0].properties_file.as_deref(), Some(Path::new("/srv/mc/server.properties")));
